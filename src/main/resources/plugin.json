@@ -1,0 +1,8 @@
+{
+    "name": "Chunky Alternate Renderer",
+    "author": "ThatRedox",
+    "main": "dev.thatredox.chunky.renderer.RendererPlugin",
+    "version": "0.1.0",
+    "targetVersion": "2.5.0",
+    "description": "Alternate renderer experiment."
+}
