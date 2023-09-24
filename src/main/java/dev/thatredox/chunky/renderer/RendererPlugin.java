@@ -1,6 +1,6 @@
 package dev.thatredox.chunky.renderer;
 
-import dev.thatredox.chunky.renderer.rt.AltDepthRenderer;
+import dev.thatredox.chunky.renderer.renderer.AltDepthRenderer;
 import se.llbit.chunky.Plugin;
 import se.llbit.chunky.main.Chunky;
 import se.llbit.chunky.main.ChunkyOptions;

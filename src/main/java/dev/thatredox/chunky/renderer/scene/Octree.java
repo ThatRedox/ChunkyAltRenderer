@@ -1,12 +1,15 @@
 package dev.thatredox.chunky.renderer.scene;
 
-import dev.thatredox.chunky.renderer.math.Intersectable;
-import dev.thatredox.chunky.renderer.math.IntersectionRecord;
-import dev.thatredox.chunky.renderer.math.Ray;
+import dev.thatredox.chunky.renderer.math.primitive.Aabb;
+import dev.thatredox.chunky.renderer.math.rt.IntersectionRecord;
+import dev.thatredox.chunky.renderer.math.rt.Ray;
+import dev.thatredox.chunky.renderer.math.rt.ShapeIntersectable;
 import se.llbit.math.PackedOctree;
 import se.llbit.math.Vector3;
 
-public class Octree implements Intersectable {
+import static dev.thatredox.chunky.renderer.math.Constants.OFFSET;
+
+public class Octree implements ShapeIntersectable {
     private final int[] tree;
     private final int depth;
     private final Aabb bounds;
@@ -22,33 +25,38 @@ public class Octree implements Intersectable {
     }
 
     @Override
-    public IntersectionRecord closestIntersection(Ray ray) {
+    public boolean intersectShape(Ray ray, IntersectionRecord record) {
         double distance = 0;
         Vector3 invDir = new Vector3(
-                1.0 / ray.dir.x,
-                1.0 / ray.dir.y,
-                1.0 / ray.dir.z
+                1.0 / ray.d.x,
+                1.0 / ray.d.y,
+                1.0 / ray.d.z
         );
+        Ray intersectRay = new Ray(ray);
 
         // Check if we are in-bounds
-        if (!bounds.isInside(ray.origin)) {
-            double dist = bounds.quickIntersection(ray.origin, invDir);
-            if (dist < 0.0) {
-                return null;
+        if (!bounds.isInside(ray.o)) {
+            double dist = bounds.quickIntersect(ray);
+            if (Double.isNaN(dist)) {
+                return false;
             }
-            distance += dist + Ray.OFFSET;
+            distance += dist + OFFSET;
         }
 
-        while (true) {
-            Vector3 pos = new Vector3(ray.origin);
-            pos.scaleAdd(distance, ray.dir);
+        // TODO: Block models
+        Aabb blockModel = new Aabb(0, 1, 0, 1, 0, 1);
+
+        // TODO: Upper bound
+        while (distance <= record.distance) {
+            Vector3 pos = new Vector3(ray.o);
+            pos.scaleAdd(distance, ray.d);
             int bx = (int) Math.floor(pos.x);
             int by = (int) Math.floor(pos.y);
             int bz = (int) Math.floor(pos.z);
 
             // Check in-bounds
             if (!bounds.isInside(pos)) {
-                return null;
+                return false;
             }
 
             // Read the octree
@@ -67,15 +75,37 @@ public class Octree implements Intersectable {
             int lz = bz >> level;
 
             if (data != 0) {
-                return new IntersectionRecord(distance);
+                intersectRay.o.set(ray.o);
+                intersectRay.o.sub(pos.x, pos.y, pos.z);
+                if (blockModel.intersectShape(intersectRay, record)) {
+                    return true;
+                }
             }
 
-            Aabb leafBox = new Aabb(
-                    lx << level, (lx + 1) << level,
-                    ly << level, (ly + 1) << level,
-                    lz << level, (lz + 1) << level
-            );
-            distance += leafBox.quickExit(pos, invDir) + Ray.OFFSET;
+            // Exit the leaf
+            double xmin = lx << level;
+            double xmax = (lx + 1) << level;
+            double ymin = ly << level;
+            double ymax = (ly + 1) << level;
+            double zmin = lz << level;
+            double zmax = (lz + 1) << level;
+
+            double tx1 = (xmin - pos.x) * invDir.x;
+            double tx2 = (xmax - pos.x) * invDir.x;
+
+            double ty1 = (ymin - pos.y) * invDir.y;
+            double ty2 = (ymax - pos.y) * invDir.y;
+
+            double tz1 = (zmin - pos.z) * invDir.z;
+            double tz2 = (zmax - pos.z) * invDir.z;
+
+            double tmax = Math.min(Math.min(
+                    Math.max(tx1, tx2),
+                    Math.max(ty1, ty2)),
+                    Math.max(tz1, tz2));
+            distance += tmax + OFFSET;
         }
+
+        return false;
     }
 }

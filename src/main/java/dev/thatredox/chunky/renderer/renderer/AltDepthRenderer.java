@@ -1,7 +1,7 @@
-package dev.thatredox.chunky.renderer.rt;
+package dev.thatredox.chunky.renderer.renderer;
 
-import dev.thatredox.chunky.renderer.math.IntersectionRecord;
-import dev.thatredox.chunky.renderer.math.Ray;
+import dev.thatredox.chunky.renderer.math.rt.IntersectionRecord;
+import dev.thatredox.chunky.renderer.math.rt.Ray;
 import dev.thatredox.chunky.renderer.scene.Octree;
 import se.llbit.chunky.renderer.DefaultRenderManager;
 import se.llbit.chunky.renderer.TileBasedRenderer;
@@ -60,10 +60,11 @@ public class AltDepthRenderer extends TileBasedRenderer {
                     state.ray.o.sub(scene.getOrigin());
 
                     Ray ray = new Ray();
-                    ray.origin.set(state.ray.o);
-                    ray.dir.set(state.ray.d);
-                    IntersectionRecord record = octree.closestIntersection(ray);
-                    if (record != null) {
+                    ray.o.set(state.ray.o);
+                    ray.d.set(state.ray.d);
+                    IntersectionRecord record = new IntersectionRecord();
+
+                    if (octree.intersectShape(ray, record)) {
                         srgb[0] += record.distance;
                         srgb[1] += record.distance;
                         srgb[2] += record.distance;
