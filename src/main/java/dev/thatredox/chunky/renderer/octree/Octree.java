@@ -1,32 +1,36 @@
-package dev.thatredox.chunky.renderer.scene;
+package dev.thatredox.chunky.renderer.octree;
 
+import dev.thatredox.chunky.renderer.block.Block;
 import dev.thatredox.chunky.renderer.math.primitive.Aabb;
 import dev.thatredox.chunky.renderer.math.rt.IntersectionRecord;
 import dev.thatredox.chunky.renderer.math.rt.Ray;
 import dev.thatredox.chunky.renderer.math.rt.ShapeIntersectable;
-import se.llbit.math.PackedOctree;
+import it.unimi.dsi.fastutil.ints.IntIntMutablePair;
+import se.llbit.math.Octree.OctreeImplementation;
 import se.llbit.math.Vector3;
 
 import static dev.thatredox.chunky.renderer.math.Constants.OFFSET;
 
 public class Octree implements ShapeIntersectable {
-    private final int[] tree;
-    private final int depth;
-    private final Aabb bounds;
+    protected final OctreeImplementation octree;
+    protected final BlockPalette palette;
+    protected final Aabb bounds;
 
-    public Octree(PackedOctree src) {
-        this.tree = src.treeData;
-        this.depth = src.getDepth();
+    public Octree(se.llbit.math.Octree octree, se.llbit.chunky.chunk.BlockPalette palette) {
+        this.octree = octree.getImplementation();
+        this.palette = new BlockPalette(palette);
+
         this.bounds = new Aabb(
-                0, 1 << depth,
-                0, 1 << depth,
-                0, 1 << depth
+                0, 1 << octree.getDepth(),
+                0, 1 << octree.getDepth(),
+                0, 1 << octree.getDepth()
         );
     }
 
     @Override
     public boolean intersectShape(Ray ray, IntersectionRecord record) {
         double distance = 0;
+        IntIntMutablePair typeAndLevel = new IntIntMutablePair(0, 0);
         Vector3 invDir = new Vector3(
                 1.0 / ray.d.x,
                 1.0 / ray.d.y,
@@ -43,9 +47,6 @@ public class Octree implements ShapeIntersectable {
             distance += dist + OFFSET;
         }
 
-        // TODO: Block models
-        Aabb blockModel = new Aabb(0, 1, 0, 1, 0, 1);
-
         // TODO: Upper bound
         while (distance <= record.distance) {
             Vector3 pos = new Vector3(ray.o);
@@ -60,24 +61,20 @@ public class Octree implements ShapeIntersectable {
             }
 
             // Read the octree
-            int level = depth;
-            int data = tree[0];
-            while (data > 0) {
-                level -= 1;
-                int lx = 1 & (bx >> level);
-                int ly = 1 & (by >> level);
-                int lz = 1 & (bz >> level);
-                data = tree[data + (lx <<2 | ly << 1 | lz)];
-            }
-            data = -data;
+            this.octree.getWithLevel(typeAndLevel, bx, by, bz);
+            int data = typeAndLevel.leftInt();
+            int level = typeAndLevel.rightInt();
+
             int lx = bx >> level;
             int ly = by >> level;
             int lz = bz >> level;
 
-            if (data != 0) {
+            Block currentBlock = this.palette.get(data);
+            if (currentBlock != null) {
                 intersectRay.o.set(ray.o);
                 intersectRay.o.sub(pos.x, pos.y, pos.z);
-                if (blockModel.intersectShape(intersectRay, record)) {
+
+                if (currentBlock.intersectShape(intersectRay, record)) {
                     return true;
                 }
             }
@@ -90,20 +87,20 @@ public class Octree implements ShapeIntersectable {
             double zmin = lz << level;
             double zmax = (lz + 1) << level;
 
-            double tx1 = (xmin - pos.x) * invDir.x;
-            double tx2 = (xmax - pos.x) * invDir.x;
+            double tx1 = (xmin - ray.o.x) * invDir.x;
+            double tx2 = (xmax - ray.o.x) * invDir.x;
 
-            double ty1 = (ymin - pos.y) * invDir.y;
-            double ty2 = (ymax - pos.y) * invDir.y;
+            double ty1 = (ymin - ray.o.y) * invDir.y;
+            double ty2 = (ymax - ray.o.y) * invDir.y;
 
-            double tz1 = (zmin - pos.z) * invDir.z;
-            double tz2 = (zmax - pos.z) * invDir.z;
+            double tz1 = (zmin - ray.o.z) * invDir.z;
+            double tz2 = (zmax - ray.o.z) * invDir.z;
 
             double tmax = Math.min(Math.min(
                     Math.max(tx1, tx2),
                     Math.max(ty1, ty2)),
                     Math.max(tz1, tz2));
-            distance += tmax + OFFSET;
+            distance = tmax + OFFSET;
         }
 
         return false;

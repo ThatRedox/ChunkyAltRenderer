@@ -2,12 +2,11 @@ package dev.thatredox.chunky.renderer.renderer;
 
 import dev.thatredox.chunky.renderer.math.rt.IntersectionRecord;
 import dev.thatredox.chunky.renderer.math.rt.Ray;
-import dev.thatredox.chunky.renderer.scene.Octree;
+import dev.thatredox.chunky.renderer.octree.Octree;
 import se.llbit.chunky.renderer.DefaultRenderManager;
 import se.llbit.chunky.renderer.TileBasedRenderer;
 import se.llbit.chunky.renderer.scene.Camera;
 import se.llbit.chunky.renderer.scene.Scene;
-import se.llbit.math.PackedOctree;
 
 public class AltDepthRenderer extends TileBasedRenderer {
     @Override
@@ -29,7 +28,7 @@ public class AltDepthRenderer extends TileBasedRenderer {
     public void render(DefaultRenderManager manager) throws InterruptedException {
         Scene scene = manager.bufferedScene;
 
-        Octree octree = new Octree((PackedOctree) scene.getWorldOctree().getImplementation());
+        Octree octree = new Octree(scene.getWorldOctree(), scene.getPalette());
 
         int width = scene.width;
         int height = scene.height;
